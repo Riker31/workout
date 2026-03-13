@@ -112,7 +112,7 @@ export default function Home() {
       if (!val) continue;
       await supabase.from("training_maxes").upsert({
         lift,
-        training_max: roundToNearest5(val * 0.9), // 90% TM
+        training_max: val, // Use directly as training max
         goal_max: val,
       }, { onConflict: "lift" });
     }
@@ -151,11 +151,10 @@ export default function Home() {
         <div className="space-y-4">
           {LIFTS.map(lift => (
             <div key={lift} className="bg-gray-900 rounded-xl p-4">
-              <label className="text-white font-semibold block mb-2">{LIFT_LABELS[lift]} — Goal 1RM (lbs)</label>
-              <input type="number" placeholder="e.g. 225" value={goalMaxes[lift] || ""}
+              <label className="text-white font-semibold block mb-2">{LIFT_LABELS[lift]} — Training Max (lbs)</label>
+              <input type="number" placeholder="e.g. 205" value={goalMaxes[lift] || ""}
                 onChange={e => setGoalMaxes(p => ({ ...p, [lift]: e.target.value }))}
                 className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-4 py-2 focus:outline-none focus:border-blue-500" />
-              {goalMaxes[lift] && <p className="text-gray-400 text-sm mt-1">Training max: {roundToNearest5(parseFloat(goalMaxes[lift]) * 0.9)} lbs</p>}
             </div>
           ))}
         </div>

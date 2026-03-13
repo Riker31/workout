@@ -16,7 +16,7 @@ export const ASSISTANCE: Record<Lift, { name: string; sets: number; reps: number
 };
 
 // Weekly cycle order
-export const WEEKLY_ORDER: Lift[] = ['press', 'deadlift', 'bench', 'squat'];
+export const WEEKLY_ORDER: Lift[] = ['squat', 'deadlift', 'press', 'bench'];
 
 // Week schemes: [sets x reps, percentages]
 export const WEEK_SCHEMES = [
