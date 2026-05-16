@@ -24,9 +24,11 @@ export default function Home() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [setupMode, setSetupMode] = useState(false);
+  const [editMaxesMode, setEditMaxesMode] = useState(false);
   const [goalMaxes, setGoalMaxes] = useState<Record<string, string>>({});
   const [suggestedMax, setSuggestedMax] = useState<number | null>(null);
   const [overrideMax, setOverrideMax] = useState("");
+  const [heroImage, setHeroImage] = useState<string>("");
 
   useEffect(() => {
     if (localStorage.getItem("workout_authed") === "yes") setAuthed(true);
@@ -35,6 +37,52 @@ export default function Home() {
   useEffect(() => {
     if (authed) { loadData(); }
   }, [authed]);
+
+  // Update hero image when lift changes - rotates daily
+  useEffect(() => {
+    if (currentLift && authed) {
+      // Curated Unsplash image IDs for each lift (diverse athletes)
+      const imageSets: Record<string, string[]> = {
+        squat: [
+          '1574683158889-2c2933d8c3a6', // Woman squatting
+          '1581009923676-044cb69a8e26', // Man deadlifting/squatting
+          '1599058948528-5c6c9f3d4d5e', // Woman barbell squat
+          '1571018795872-3f49877b2644', // Man squatting heavy
+          '1534438327276-14e5300c3a48', // CrossFit gym scene
+          '1593697752196-92f1678e5f3e', // Woman powerlifting
+        ],
+        deadlift: [
+          '1581009923676-044cb69a8e26', // Man deadlifting
+          '1599058948528-5c6c9f3d4d5e', // Woman deadlifting
+          '1574683158889-2c2933d8c3a6', // Woman barbell lift
+          '1571018795872-3f49877b2644', // Man strongman lift
+          '1534438327276-14e5300c3a48', // Gym barbell scene
+          '1593697752196-92f1678e5f3e', // Woman powerlifting
+        ],
+        bench: [
+          '1571018795872-3f49877b2644', // Man bench pressing
+          '1599058948528-5c6c9f3d4d5e', // Woman bench press
+          '1574683158889-2c2933d8c3a6', // Woman chest press
+          '1581009923676-044cb69a8e26', // Man gym press
+          '1534438327276-14e5300c3a48', // Gym bench scene
+          '1593697752196-92f1678e5f3e', // Woman strength training
+        ],
+        press: [
+          '1534438327276-14e5300c3a48', // Overhead press
+          '1599058948528-5c6c9f3d4d5e', // Woman shoulder press
+          '1571018795872-3f49877b2644', // Man military press
+          '1574683158889-2c2933d8c3a6', // Woman overhead lift
+          '1581009923676-044cb69a8e26', // Man barbell press
+          '1593697752196-92f1678e5f3e', // CrossFit press
+        ],
+      };
+      // Rotate based on day of year + cycle for variety
+      const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000);
+      const imageIndex = (dayOfYear + (cycle?.current_cycle || 0)) % (imageSets[currentLift]?.length || 1);
+      const imageId = imageSets[currentLift]?.[imageIndex] || '1574683158889-2c2933d8c3a6';
+      setHeroImage(`https://images.unsplash.com/photo-${imageId}?w=1200&h=400&fit=crop`);
+    }
+  }, [currentLift, authed, cycle]);
 
   const loadData = async () => {
     const [{ data: m }, { data: c }, { data: l }] = await Promise.all([
@@ -120,6 +168,31 @@ export default function Home() {
     await loadData();
   };
 
+  const handleEditMaxesSave = async () => {
+    for (const lift of LIFTS) {
+      const tm = maxes.find(m => m.lift === lift);
+      if (!tm) continue;
+      const goalVal = parseFloat(goalMaxes[lift] || String(tm.goal_max || 0));
+      const trainingMaxVal = Math.round(goalVal * 0.9 / 5) * 5; // 90% rounded to nearest 5
+      await supabase.from("training_maxes").upsert({
+        lift,
+        training_max: trainingMaxVal,
+        goal_max: goalVal,
+      }, { onConflict: "lift" });
+    }
+    setEditMaxesMode(false);
+    await loadData();
+  };
+
+  const startEditMaxes = () => {
+    const initial: Record<string, string> = {};
+    maxes.forEach(m => {
+      initial[m.lift] = String(m.goal_max || m.training_max);
+    });
+    setGoalMaxes(initial);
+    setEditMaxesMode(true);
+  };
+
   const handleMaxOverride = async () => {
     if (!currentLift) return;
     const newMax = overrideMax ? parseFloat(overrideMax) : suggestedMax;
@@ -165,12 +238,33 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gray-950 text-white">
+      {/* Hero Image */}
+      {tab === "today" && heroImage && currentLift && (
+        <div className="relative h-48 overflow-hidden">
+          <img 
+            src={heroImage} 
+            alt={`${LIFT_LABELS[currentLift as keyof typeof LIFT_LABELS]} workout`}
+            className="w-full h-full object-cover"
+            onError={() => setHeroImage(`https://images.unsplash.com/photo-${currentLift === 'squat' ? '1574683158889-2c2933d8c3a6' : currentLift === 'deadlift' ? '1581009923676-044cb69a8e26' : currentLift === 'bench' ? '1571018795872-3f49877b2644' : '1534438327276-14e5300c3a48'}?w=1200&h=400&fit=crop`)}
+          />
+          <div className="absolute inset-0 bg-gradient-to-b from-gray-950/70 to-gray-950/30" />
+          <div className="absolute bottom-4 left-6 right-6">
+            <h1 className="text-3xl font-bold text-white drop-shadow-lg">{LIFT_LABELS[currentLift as keyof typeof LIFT_LABELS]}</h1>
+            {cycle && <p className="text-gray-200 text-sm drop-shadow">Cycle {cycle.current_cycle} · {WEEK_NAMES[cycle.current_week]}</p>}
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="bg-gray-900 border-b border-gray-800 px-6 py-4">
         <div className="max-w-lg mx-auto flex justify-between items-center">
           <div>
-            <h1 className="text-xl font-bold">🏋️ 5/3/1 Tracker</h1>
-            {cycle && <p className="text-gray-400 text-sm">Cycle {cycle.current_cycle} · {WEEK_NAMES[cycle.current_week]}</p>}
+            {tab !== "today" && (
+              <>
+                <h1 className="text-xl font-bold">🏋️ 5/3/1 Tracker</h1>
+                {cycle && <p className="text-gray-400 text-sm">Cycle {cycle.current_cycle} · {WEEK_NAMES[cycle.current_week]}</p>}
+              </>
+            )}
           </div>
           <button onClick={() => { localStorage.removeItem("workout_authed"); setAuthed(false); }} className="text-gray-500 text-sm hover:text-gray-300">Logout</button>
         </div>
@@ -282,9 +376,14 @@ export default function Home() {
         )}
 
         {/* HISTORY TAB */}
-        {tab === "history" && (
+        {tab === "history" && !editMaxesMode && (
           <div className="space-y-3">
-            <h2 className="text-lg font-bold mb-4">📊 Training History</h2>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-bold">📊 Training History</h2>
+              <button onClick={startEditMaxes} className="text-xs bg-gray-800 hover:bg-gray-700 text-blue-400 px-3 py-1.5 rounded-lg transition">
+                ✏️ Edit Goal Maxes
+              </button>
+            </div>
             {/* Maxes summary */}
             <div className="bg-gray-900 rounded-2xl p-4 mb-4">
               <p className="text-xs text-gray-500 uppercase tracking-wider mb-3">Current Training Maxes</p>
@@ -315,6 +414,43 @@ export default function Home() {
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* EDIT GOAL MAXES MODE */}
+        {tab === "history" && editMaxesMode && (
+          <div className="space-y-3">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-bold">✏️ Edit Goal Maxes</h2>
+              <button onClick={() => setEditMaxesMode(false)} className="text-xs text-gray-500 hover:text-gray-300">
+                Cancel
+              </button>
+            </div>
+            <p className="text-gray-400 text-sm mb-4">Update your goal 1RM. Training max will be set to 90% automatically.</p>
+            <div className="space-y-4">
+              {maxes.map(m => {
+                const goalVal = parseFloat(goalMaxes[m.lift] || String(m.goal_max || 0));
+                const newTM = Math.round(goalVal * 0.9 / 5) * 5;
+                return (
+                  <div key={m.lift} className="bg-gray-900 rounded-xl p-4">
+                    <label className="text-white font-semibold block mb-2">{LIFT_LABELS[m.lift as keyof typeof LIFT_LABELS]}</label>
+                    <div className="space-y-2">
+                      <input type="number" value={goalMaxes[m.lift] || ""}
+                        onChange={e => setGoalMaxes(p => ({ ...p, [m.lift]: e.target.value }))}
+                        className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-4 py-2 focus:outline-none focus:border-blue-500"
+                        placeholder="Goal 1RM (lbs)" />
+                      <p className="text-xs text-gray-500">
+                        Current TM: <strong className="text-blue-400">{m.training_max} lbs</strong> → 
+                        New TM: <strong className="text-green-400">{newTM} lbs</strong> (90% of {goalVal || '___'} )
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <button onClick={handleEditMaxesSave} className="mt-6 w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl transition">
+              Save Changes
+            </button>
           </div>
         )}
 
