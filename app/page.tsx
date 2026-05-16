@@ -28,7 +28,6 @@ export default function Home() {
   const [goalMaxes, setGoalMaxes] = useState<Record<string, string>>({});
   const [suggestedMax, setSuggestedMax] = useState<number | null>(null);
   const [overrideMax, setOverrideMax] = useState("");
-  const [heroImage, setHeroImage] = useState<string>("");
 
   useEffect(() => {
     if (localStorage.getItem("workout_authed") === "yes") setAuthed(true);
@@ -37,52 +36,6 @@ export default function Home() {
   useEffect(() => {
     if (authed) { loadData(); }
   }, [authed]);
-
-  // Update hero image when lift changes - rotates daily
-  useEffect(() => {
-    if (currentLift && authed) {
-      // Curated Unsplash image IDs for each lift (diverse athletes)
-      const imageSets: Record<string, string[]> = {
-        squat: [
-          '1574683158889-2c2933d8c3a6', // Woman squatting
-          '1581009923676-044cb69a8e26', // Man deadlifting/squatting
-          '1599058948528-5c6c9f3d4d5e', // Woman barbell squat
-          '1571018795872-3f49877b2644', // Man squatting heavy
-          '1534438327276-14e5300c3a48', // CrossFit gym scene
-          '1593697752196-92f1678e5f3e', // Woman powerlifting
-        ],
-        deadlift: [
-          '1581009923676-044cb69a8e26', // Man deadlifting
-          '1599058948528-5c6c9f3d4d5e', // Woman deadlifting
-          '1574683158889-2c2933d8c3a6', // Woman barbell lift
-          '1571018795872-3f49877b2644', // Man strongman lift
-          '1534438327276-14e5300c3a48', // Gym barbell scene
-          '1593697752196-92f1678e5f3e', // Woman powerlifting
-        ],
-        bench: [
-          '1571018795872-3f49877b2644', // Man bench pressing
-          '1599058948528-5c6c9f3d4d5e', // Woman bench press
-          '1574683158889-2c2933d8c3a6', // Woman chest press
-          '1581009923676-044cb69a8e26', // Man gym press
-          '1534438327276-14e5300c3a48', // Gym bench scene
-          '1593697752196-92f1678e5f3e', // Woman strength training
-        ],
-        press: [
-          '1534438327276-14e5300c3a48', // Overhead press
-          '1599058948528-5c6c9f3d4d5e', // Woman shoulder press
-          '1571018795872-3f49877b2644', // Man military press
-          '1574683158889-2c2933d8c3a6', // Woman overhead lift
-          '1581009923676-044cb69a8e26', // Man barbell press
-          '1593697752196-92f1678e5f3e', // CrossFit press
-        ],
-      };
-      // Rotate based on day of year + cycle for variety
-      const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000);
-      const imageIndex = (dayOfYear + (cycle?.current_cycle || 0)) % (imageSets[currentLift]?.length || 1);
-      const imageId = imageSets[currentLift]?.[imageIndex] || '1574683158889-2c2933d8c3a6';
-      setHeroImage(`https://images.unsplash.com/photo-${imageId}?w=1200&h=400&fit=crop`);
-    }
-  }, [currentLift, authed, cycle]);
 
   const loadData = async () => {
     const [{ data: m }, { data: c }, { data: l }] = await Promise.all([
@@ -202,6 +155,33 @@ export default function Home() {
     await loadData();
   };
 
+  // Get hero image for current lift - rotates daily
+  const getHeroImage = () => {
+    if (!currentLift) return '';
+    const imageSets: Record<string, string[]> = {
+      squat: [
+        '1574683158889-2c2933d8c3a6', '1581009923676-044cb69a8e26', '1599058948528-5c6c9f3d4d5e',
+        '1571018795872-3f49877b2644', '1534438327276-14e5300c3a48', '1593697752196-92f1678e5f3e',
+      ],
+      deadlift: [
+        '1581009923676-044cb69a8e26', '1599058948528-5c6c9f3d4d5e', '1574683158889-2c2933d8c3a6',
+        '1571018795872-3f49877b2644', '1534438327276-14e5300c3a48', '1593697752196-92f1678e5f3e',
+      ],
+      bench: [
+        '1571018795872-3f49877b2644', '1599058948528-5c6c9f3d4d5e', '1574683158889-2c2933d8c3a6',
+        '1581009923676-044cb69a8e26', '1534438327276-14e5300c3a48', '1593697752196-92f1678e5f3e',
+      ],
+      press: [
+        '1534438327276-14e5300c3a48', '1599058948528-5c6c9f3d4d5e', '1571018795872-3f49877b2644',
+        '1574683158889-2c2933d8c3a6', '1581009923676-044cb69a8e26', '1593697752196-92f1678e5f3e',
+      ],
+    };
+    const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000);
+    const imageIndex = (dayOfYear + (cycle?.current_cycle || 0)) % (imageSets[currentLift]?.length || 1);
+    const imageId = imageSets[currentLift]?.[imageIndex] || '1574683158889-2c2933d8c3a6';
+    return `https://images.unsplash.com/photo-${imageId}?w=1200&h=400&fit=crop`;
+  };
+
   if (!authed) return (
     <div className="min-h-screen bg-gray-950 flex items-center justify-center p-6">
       <div className="bg-gray-900 rounded-2xl p-8 w-full max-w-sm text-center">
@@ -239,13 +219,12 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-gray-950 text-white">
       {/* Hero Image */}
-      {tab === "today" && heroImage && currentLift && (
+      {tab === "today" && currentLift && (
         <div className="relative h-48 overflow-hidden">
           <img 
-            src={heroImage} 
+            src={getHeroImage()} 
             alt={`${LIFT_LABELS[currentLift as keyof typeof LIFT_LABELS]} workout`}
             className="w-full h-full object-cover"
-            onError={() => setHeroImage(`https://images.unsplash.com/photo-${currentLift === 'squat' ? '1574683158889-2c2933d8c3a6' : currentLift === 'deadlift' ? '1581009923676-044cb69a8e26' : currentLift === 'bench' ? '1571018795872-3f49877b2644' : '1534438327276-14e5300c3a48'}?w=1200&h=400&fit=crop`)}
           />
           <div className="absolute inset-0 bg-gradient-to-b from-gray-950/70 to-gray-950/30" />
           <div className="absolute bottom-4 left-6 right-6">
