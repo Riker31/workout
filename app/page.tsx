@@ -7,6 +7,7 @@ import { LIFTS, LIFT_LABELS, ASSISTANCE, WEEKLY_ORDER, WEEK_SCHEMES, calculateSe
 type TrainingMax = { lift: string; training_max: number; goal_max: number | null };
 type CycleState = { id: string; current_cycle: number; current_week: number; current_lift_index: number };
 type LogEntry = { id: string; logged_at: string; cycle: number; week: number; lift: string; amrap_weight: number; amrap_reps: number; estimated_1rm: number; training_max: number };
+type HeroImage = { id: number; lift: string; image_url: string; description: string; athlete_gender: string };
 
 const WEEK_NAMES = ['', 'Week 1 — 5s', 'Week 2 — 3s', 'Week 3 — 5/3/1', 'Week 4 — Deload'];
 
@@ -28,6 +29,7 @@ export default function Home() {
   const [goalMaxes, setGoalMaxes] = useState<Record<string, string>>({});
   const [suggestedMax, setSuggestedMax] = useState<number | null>(null);
   const [overrideMax, setOverrideMax] = useState("");
+  const [heroImages, setHeroImages] = useState<Record<string, HeroImage[]>>({});
 
   useEffect(() => {
     if (localStorage.getItem("workout_authed") === "yes") setAuthed(true);
@@ -36,6 +38,18 @@ export default function Home() {
   useEffect(() => {
     if (authed) { loadData(); }
   }, [authed]);
+
+  const loadHeroImages = async () => {
+    const { data: images } = await supabase.from("hero_images").select("*");
+    if (images) {
+      const grouped: Record<string, HeroImage[]> = {};
+      images.forEach(img => {
+        if (!grouped[img.lift]) grouped[img.lift] = [];
+        grouped[img.lift].push(img);
+      });
+      setHeroImages(grouped);
+    }
+  };
 
   const loadData = async () => {
     const [{ data: m }, { data: c }, { data: l }] = await Promise.all([
@@ -47,6 +61,7 @@ export default function Home() {
     if (c) setCycle(c);
     if (l) setLog(l);
     if (!m || m.length === 0) setSetupMode(true);
+    loadHeroImages();
   };
 
   const login = () => {
@@ -155,17 +170,13 @@ export default function Home() {
     await loadData();
   };
 
-  // Get hero image for current lift - using gradient with icon
+  // Get hero image for current lift from database - rotates based on cycle
   const getHeroImage = () => {
-    if (!currentLift) return '';
-    // Use gradient backgrounds with emoji - reliable and fast
-    const gradients: Record<string, string> = {
-      squat: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-      deadlift: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
-      bench: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
-      press: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
-    };
-    return gradients[currentLift] || gradients.squat;
+    if (!currentLift || !heroImages[currentLift] || heroImages[currentLift].length === 0) return '';
+    const images = heroImages[currentLift];
+    // Rotate through images based on cycle number and week
+    const imageIndex = ((cycle?.current_cycle || 1) + (cycle?.current_week || 1)) % images.length;
+    return images[imageIndex].image_url;
   };
 
   if (!authed) return (
@@ -205,18 +216,18 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-gray-950 text-white">
       {/* Hero Banner */}
-      {tab === "today" && currentLift && (
-        <div 
-          className="relative h-48 flex items-center justify-center"
-          style={{ background: getHeroImage() }}
-        >
-          <div className="absolute inset-0 bg-black/40" />
-          <div className="relative text-center">
-            <div className="text-6xl mb-3">
-              {currentLift === 'squat' ? '🏋️' : currentLift === 'deadlift' ? '⚡' : currentLift === 'bench' ? '💪' : '🎯'}
-            </div>
+      {tab === "today" && currentLift && getHeroImage() && (
+        <div className="relative h-48 overflow-hidden">
+          <img 
+            src={getHeroImage()} 
+            alt={`${LIFT_LABELS[currentLift as keyof typeof LIFT_LABELS]} workout`}
+            className="w-full h-full object-cover"
+            loading="eager"
+          />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/30 to-gray-950" />
+          <div className="absolute bottom-4 left-6 right-6">
             <h1 className="text-3xl font-bold text-white drop-shadow-lg">{LIFT_LABELS[currentLift as keyof typeof LIFT_LABELS]}</h1>
-            {cycle && <p className="text-gray-200 text-sm drop-shadow mt-1">Cycle {cycle.current_cycle} · {WEEK_NAMES[cycle.current_week]}</p>}
+            {cycle && <p className="text-gray-200 text-sm drop-shadow">Cycle {cycle.current_cycle} · {WEEK_NAMES[cycle.current_week]}</p>}
           </div>
         </div>
       )}
