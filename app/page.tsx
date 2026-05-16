@@ -155,31 +155,17 @@ export default function Home() {
     await loadData();
   };
 
-  // Get hero image for current lift - rotates daily
+  // Get hero image for current lift - using gradient with icon
   const getHeroImage = () => {
     if (!currentLift) return '';
-    const imageSets: Record<string, string[]> = {
-      squat: [
-        '1574683158889-2c2933d8c3a6', '1581009923676-044cb69a8e26', '1599058948528-5c6c9f3d4d5e',
-        '1571018795872-3f49877b2644', '1534438327276-14e5300c3a48', '1593697752196-92f1678e5f3e',
-      ],
-      deadlift: [
-        '1581009923676-044cb69a8e26', '1599058948528-5c6c9f3d4d5e', '1574683158889-2c2933d8c3a6',
-        '1571018795872-3f49877b2644', '1534438327276-14e5300c3a48', '1593697752196-92f1678e5f3e',
-      ],
-      bench: [
-        '1571018795872-3f49877b2644', '1599058948528-5c6c9f3d4d5e', '1574683158889-2c2933d8c3a6',
-        '1581009923676-044cb69a8e26', '1534438327276-14e5300c3a48', '1593697752196-92f1678e5f3e',
-      ],
-      press: [
-        '1534438327276-14e5300c3a48', '1599058948528-5c6c9f3d4d5e', '1571018795872-3f49877b2644',
-        '1574683158889-2c2933d8c3a6', '1581009923676-044cb69a8e26', '1593697752196-92f1678e5f3e',
-      ],
+    // Use gradient backgrounds with emoji - reliable and fast
+    const gradients: Record<string, string> = {
+      squat: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+      deadlift: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+      bench: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+      press: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
     };
-    const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000);
-    const imageIndex = (dayOfYear + (cycle?.current_cycle || 0)) % (imageSets[currentLift]?.length || 1);
-    const imageId = imageSets[currentLift]?.[imageIndex] || '1574683158889-2c2933d8c3a6';
-    return `https://images.unsplash.com/photo-${imageId}?w=1200&h=400&fit=crop`;
+    return gradients[currentLift] || gradients.squat;
   };
 
   if (!authed) return (
@@ -218,18 +204,19 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gray-950 text-white">
-      {/* Hero Image */}
+      {/* Hero Banner */}
       {tab === "today" && currentLift && (
-        <div className="relative h-48 overflow-hidden">
-          <img 
-            src={getHeroImage()} 
-            alt={`${LIFT_LABELS[currentLift as keyof typeof LIFT_LABELS]} workout`}
-            className="w-full h-full object-cover"
-          />
-          <div className="absolute inset-0 bg-gradient-to-b from-gray-950/70 to-gray-950/30" />
-          <div className="absolute bottom-4 left-6 right-6">
+        <div 
+          className="relative h-48 flex items-center justify-center"
+          style={{ background: getHeroImage() }}
+        >
+          <div className="absolute inset-0 bg-black/40" />
+          <div className="relative text-center">
+            <div className="text-6xl mb-3">
+              {currentLift === 'squat' ? '🏋️' : currentLift === 'deadlift' ? '⚡' : currentLift === 'bench' ? '💪' : '🎯'}
+            </div>
             <h1 className="text-3xl font-bold text-white drop-shadow-lg">{LIFT_LABELS[currentLift as keyof typeof LIFT_LABELS]}</h1>
-            {cycle && <p className="text-gray-200 text-sm drop-shadow">Cycle {cycle.current_cycle} · {WEEK_NAMES[cycle.current_week]}</p>}
+            {cycle && <p className="text-gray-200 text-sm drop-shadow mt-1">Cycle {cycle.current_cycle} · {WEEK_NAMES[cycle.current_week]}</p>}
           </div>
         </div>
       )}
